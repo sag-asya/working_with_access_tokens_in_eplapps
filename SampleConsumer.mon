@@ -1,0 +1,65 @@
+
+/** This monitor is a sample consumer of an access token. It registers its interest in token and keeps getting updates callback for that token */
+monitor SampleConsumer {
+	
+	string token := "";
+	TokenRegistrar registrar;
+	
+	event TokenRefreshed {}
+	event LoopEvent {}
+	
+	integer loopCounter := 0;
+	action onload() {
+		log "Loaded monitor SampleConsumer" at INFO;
+		spawn startConsumingToken() to context("some_context");
+	}
+	
+	action refreshToken(string tokenValue) {
+		token := tokenValue;
+		if  (token != "") {
+			send TokenRefreshed() to context.current();	
+		}
+	}
+	
+	action startConsumingToken() {
+		// Register for token updates
+		registrar := TokenRegistrar.registerInterest("token_tag_for_uri_abc", refreshToken);
+		
+		// Start using token
+		on all LoopEvent() {
+			log currentTime.toString() at INFO;
+			if ("" = token) {
+				log "Consumer: Cannot use token as it has expired and invalid. I will wait for a Token refresh before using it" at WARN;
+				on TokenRefreshed() {
+					useToken();
+				}
+			} else {
+				useToken();
+			}
+		}
+		send LoopEvent() to context.current();
+	}
+	
+	action useToken() {
+		//we can use this valid token in our requests here
+		log "Consumer: Found a valid token: " + token at INFO;
+		
+		loopCounter := loopCounter + 1;
+		// Some condition after which we no longer need token and can directly unregisterInterest or 
+		// call die on monitor and unregisterInterest in the ondie()
+		if (loopCounter = 20) {
+			die;
+			//registrar.unregisterInterest();
+		} else {
+			log currentTime.toString() at INFO;
+			// Add a small delay before the next token use
+			on wait(5.0) {
+				send LoopEvent() to context.current();
+			}	
+		}
+	}
+	
+	action ondie() {
+		registrar.unregisterInterest();
+	}
+}
