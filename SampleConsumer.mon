@@ -1,5 +1,7 @@
-
-/** This monitor is a sample consumer of an access token. It registers its interest in token and keeps getting updates callback for that token */
+/** 
+*	This monitor is a sample consumer of an access token. 
+*	It registers its interest in token and keeps getting updates callback for that token
+*/
 monitor SampleConsumer {
 	
 	string token := "";
@@ -29,7 +31,8 @@ monitor SampleConsumer {
 		on all LoopEvent() {
 			log currentTime.toString() at INFO;
 			if ("" = token) {
-				log "Consumer: Cannot use token as it has expired and invalid. I will wait for a Token refresh before using it" at WARN;
+				log "Consumer: Cannot use token as it has expired and invalid." +
+						" I will wait for a Token refresh before using it" at WARN;
 				on TokenRefreshed() {
 					useToken();
 				}

@@ -1,50 +1,69 @@
 using com.apama.cumulocity.Event;
 
-/** @private Internal event TokenRegistrationRequest */
+/** 
+*	@private Internal event TokenRegistrationRequest
+*/
 event TokenRegistrationRequest {
 	constant string SEND_CHANNEL := "TOKEN_FACTORY_IN_CHANNEL";
 	string eventType;
 	integer reqId;
 }
 
-/** @private Internal event TokenRegistrationResponse */
+/**
+*	@private Internal event TokenRegistrationResponse
+*/
 event TokenRegistrationResponse {
 	constant string SUBSCRIBE_CHANNEL := "TOKEN_FACTORY_OUT_CHANNEL";
 	integer reqId;
 	string token;
 }
 
-/** @private Internal event TokenUpdate */
+/**
+*	@private Internal event TokenUpdate
+*/
 event TokenUpdate {
 	constant string SUBSCRIBE_CHANNEL := "TOKEN_FACTORY_OUT_CHANNEL";
 	string eventType;
 	string token;
 }
 
-/** @private Internal event RegistrationCancellationReq */
+/**
+*	@private Internal event RegistrationCancellationReq
+*/
 event RegistrationCancellationReq {
 	constant string SEND_CHANNEL := "TOKEN_FACTORY_IN_CHANNEL";
 	string eventType;
 }
 
-/** Use TokenRegistrar.registerInterest to get update callbacks for a particular token */
+/**
+*	Use TokenRegistrar.registerInterest to get update callbacks for a particular token
+*/
 event TokenRegistrar {
 	
-	/** @private */ listener responseListener;
-	/** @private */ listener updateListener;
-	/** @private */ string eventType;
+	/** @private */ 
+	listener responseListener;
 	
-	/** A static method to be called by any consumers which are interested in getting refresh updates for a particular token
+	/** @private */ 
+	listener updateListener;
+	
+	/** @private */ 
+	string eventType;
+	
+	/** 
+	*	A static method to be called by any consumers which are interested in 
+	*	getting refresh updates for a particular token
 	*	@return a TokenRegistrar on which you can call unregisterInterest later
 	*/
-	static action registerInterest(string eventType, action<string> callback) returns TokenRegistrar {
-		
-		// For simplification, only 2 channels are utilized by all Internal events: TOKEN_FACTORY_IN_CHANNEL, TOKEN_FACTORY_OUT_CHANNEL
+	static action registerInterest(string eventType, action<string> callback) 
+														returns TokenRegistrar {
+		//	For simplification, only 2 channels are utilized by all Internal 
+		//	events: TOKEN_FACTORY_IN_CHANNEL, TOKEN_FACTORY_OUT_CHANNEL
 		monitor.subscribe(TokenRegistrationResponse.SUBSCRIBE_CHANNEL);
 		
 		integer reqId := integer.getUnique();
 		
-		listener responseListener := on TokenRegistrationResponse(reqId=reqId) as resp and not TokenUpdate(eventType=eventType) {
+		listener responseListener := on TokenRegistrationResponse(reqId=reqId) as resp
+					and not TokenUpdate(eventType=eventType) {
 			callback(resp.token);	
 		}
 		
@@ -57,7 +76,8 @@ event TokenRegistrar {
 		return TokenRegistrar(responseListener, updateListener, eventType);
 	}
 	
-	/** A method to be called by consumers when they no longer want update notifications
+	/**
+	*	This method should be called by consumers when they no longer want update notifications
 	*/
 	action unregisterInterest() {
 		updateListener.quit();
@@ -67,7 +87,10 @@ event TokenRegistrar {
 	
 }
 
-/** This monitor is responsible for providing token updates to all of the Token consumers which have registered to updates using Token.registerInterest  */
+/** 
+*	This monitor is responsible for providing token updates to all of the 
+*	Token consumers which have registered to updates using Token.registerInterest
+*/
 monitor TokenFactory {
 
 	action onload() {
@@ -87,7 +110,10 @@ monitor TokenFactory {
 
 	dictionary<string, CacheEntry> tokenCache;
 	
-	/** Listens for TokenRegistrationRequests and keep sending token refresh notifications to respective consumers using TokenUpdates */
+	/** 
+	*	Listens for all Token related requests and keep sending token refresh 
+	*	notifications to respective consumers using TokenUpdates 
+	*/
 	action serveTokenRelatedRequests() {
 		monitor.subscribe(TokenRegistrationRequest.SEND_CHANNEL);
 		monitor.subscribe(Event.SUBSCRIBE_CHANNEL);
@@ -100,6 +126,7 @@ monitor TokenFactory {
 					// if "token" and/or "expirationTime" fields are missing, consider it as an expired token
 					string token := "";
 					float expirationTime := e.params.getOr("expirationTime", 0.0).valueToString().toFloat();
+					// Read the token only if it is still valid
 					if (expirationTime > currentTime) {
 						token := e.params.getOr("token", "").valueToString();
 					}
@@ -110,8 +137,10 @@ monitor TokenFactory {
 				// Increment the number of consumers by 1
 				tokenCache[req.eventType].consumers := tokenCache[req.eventType].consumers + 1;
 			}
-			// Always respond with the cached value even if it is invalid. A new TokenUpdate notification will be sent on every refresh
-			send TokenRegistrationResponse(req.reqId, tokenCache[req.eventType].token) to TokenRegistrationResponse.SUBSCRIBE_CHANNEL;
+			//	Always respond with the cached value even if it is invalid.
+			//	A new TokenUpdate notification will be sent on every future refresh
+			send TokenRegistrationResponse(req.reqId, tokenCache[req.eventType].token) to 
+												TokenRegistrationResponse.SUBSCRIBE_CHANNEL;
 		}
 		
 		on all RegistrationCancellationReq() as req {
@@ -131,9 +160,12 @@ monitor TokenFactory {
 		}
 	}
 	
-	/** Starts an expiration timer on a cache key.*/
+	/** 
+	*	Starts an expiration timer on a cache key.
+	*/
 	action startExpiryTimer(string key) {
-		// we can configure an additional wait to log a early warning, trigger a refresh-token subroutine and notify the person responsible via SMS/EMAIL
+		//	we can configure an additional wait to log a early warning, 
+		//	trigger a refresh-token subroutine or notify the person responsible via SMS/EMAIL
 		
 		on wait(tokenCache[key].expiration - currentTime) and not StopEventListener(type=key){
 			// check if the token was refreshed during this wait
@@ -149,7 +181,10 @@ monitor TokenFactory {
 		}
 	}
 	
-	/** Updates the caches on any token refreshes received as events and notifies the consumers by sending a TokenRegistrationResponse with reqid set to 0 */ 
+	/** 
+	*	Updates the caches on any token refreshes received as events and notifies 
+	*	the consumers by sending a TokenUpdate with eventType=key
+	*/ 
 	action updateAndNotify(string key, string tokenValue, float expirationTime) {
 		CacheEntry cachedEntry := tokenCache[key];
 		cachedEntry.token := tokenValue;
