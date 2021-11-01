@@ -55,7 +55,7 @@ event TokenRegistrar {
 	*	@return a TokenRegistrar on which you can call unregisterInterest later
 	*/
 	static action registerInterest(string eventType, action<string> callback) 
-														returns TokenRegistrar {
+		returns TokenRegistrar {
 		//	For simplification, only 2 channels are utilized by all Internal 
 		//	events: TOKEN_FACTORY_IN_CHANNEL, TOKEN_FACTORY_OUT_CHANNEL
 		monitor.subscribe(TokenRegistrationResponse.SUBSCRIBE_CHANNEL);
@@ -140,7 +140,7 @@ monitor TokenFactory {
 			//	Always respond with the cached value even if it is invalid.
 			//	A new TokenUpdate notification will be sent on every future refresh
 			send TokenRegistrationResponse(req.reqId, tokenCache[req.eventType].token) to 
-												TokenRegistrationResponse.SUBSCRIBE_CHANNEL;
+							TokenRegistrationResponse.SUBSCRIBE_CHANNEL;
 		}
 		
 		on all RegistrationCancellationReq() as req {
