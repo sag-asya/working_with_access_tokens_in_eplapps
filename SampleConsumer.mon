@@ -1,6 +1,6 @@
 /**
- * This monitor is a sample consumer of an access token.
- * It registers its interest in token and keeps getting updates callback for that token
+ * This monitor is a sample consumer of an access token. It registers its
+ * interest in token and keeps getting updates callback for that token.
  */
 monitor SampleConsumer {
 
@@ -26,14 +26,16 @@ monitor SampleConsumer {
 
     action startConsumingToken() {
         // Register for token updates
-        registrar := TokenRegistrar.registerInterest("token_tag_for_uri_abc", refreshToken);
+        registrar := TokenRegistrar.registerInterest("token_tag_for_uri_abc",
+                                                     refreshToken);
 
         // Start using token
         on all LoopEvent() {
             log currentTime.toString() at INFO;
             if ("" = token) {
-                log "Consumer: Cannot use token as it has expired and invalid." +
-                        " I will wait for a Token refresh before using it" at WARN;
+                log "Consumer: Cannot use token as it has expired and invalid."
+                    + " I will wait for a Token refresh before using it"
+                    at WARN;
                 on TokenRefreshed() {
                     useToken();
                 }
@@ -45,12 +47,13 @@ monitor SampleConsumer {
     }
 
     action useToken() {
-        //we can use this valid token in our requests here
+        // we can use this valid token in our requests here
         log "Consumer: Found a valid token: " + token at INFO;
 
         loopCounter := loopCounter + 1;
-        // Some condition after which we no longer need token and can directly unregisterInterest or
-        // call die on monitor and unregisterInterest in the ondie()
+        // Some condition after which we no longer need token and can directly
+        // unregisterInterest or call die on monitor and unregisterInterest in
+        // the ondie()
         if (loopCounter = 20) {
             die;
         } else {

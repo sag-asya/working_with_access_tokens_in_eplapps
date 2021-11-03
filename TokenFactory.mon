@@ -1,7 +1,8 @@
 using com.apama.cumulocity.Event;
 
 /**
- * @private Internal event TokenRegistrationRequest
+ * @private
+ * Internal event TokenRegistrationRequest
  */
 event TokenRegistrationRequest {
     constant string SEND_CHANNEL := "TOKEN_FACTORY_IN_CHANNEL";
@@ -10,7 +11,8 @@ event TokenRegistrationRequest {
 }
 
 /**
- * @private Internal event TokenRegistrationResponse
+ * @private
+ * Internal event TokenRegistrationResponse
  */
 event TokenRegistrationResponse {
     constant string SUBSCRIBE_CHANNEL := "TOKEN_FACTORY_OUT_CHANNEL";
@@ -19,7 +21,8 @@ event TokenRegistrationResponse {
 }
 
 /**
- * @private Internal event TokenUpdate
+ * @private
+ * Internal event TokenUpdate
  */
 event TokenUpdate {
     constant string SUBSCRIBE_CHANNEL := "TOKEN_FACTORY_OUT_CHANNEL";
@@ -28,7 +31,8 @@ event TokenUpdate {
 }
 
 /**
- * @private Internal event RegistrationCancellationReq
+ * @private
+ * Internal event RegistrationCancellationReq
  */
 event RegistrationCancellationReq {
     constant string SEND_CHANNEL := "TOKEN_FACTORY_IN_CHANNEL";
@@ -56,33 +60,38 @@ event TokenRegistrar {
      */
     static action registerInterest(string eventType, action<string> callback)
                                    returns TokenRegistrar {
-        //	For simplification, only 2 channels are utilized by all Internal
-        //	events: TOKEN_FACTORY_IN_CHANNEL, TOKEN_FACTORY_OUT_CHANNEL
+        // For simplification, only 2 channels are utilized by all Internal
+        // events: TOKEN_FACTORY_IN_CHANNEL, TOKEN_FACTORY_OUT_CHANNEL
         monitor.subscribe(TokenRegistrationResponse.SUBSCRIBE_CHANNEL);
 
         integer reqId := integer.getUnique();
 
-        listener responseListener := on TokenRegistrationResponse(reqId=reqId) as resp
-                    and not TokenUpdate(eventType=eventType) {
+        listener responseListener :=
+                on TokenRegistrationResponse(reqId=reqId) as resp
+                and not TokenUpdate(eventType=eventType) {
             callback(resp.token);
         }
 
-        listener updateListener := on all TokenUpdate(eventType=eventType) as resp {
+        listener updateListener :=
+                on all TokenUpdate(eventType=eventType) as resp {
             callback(resp.token);
         }
 
-        send TokenRegistrationRequest(eventType, reqId) to TokenRegistrationRequest.SEND_CHANNEL;
+        send TokenRegistrationRequest(eventType, reqId) 
+             to TokenRegistrationRequest.SEND_CHANNEL;
 
         return TokenRegistrar(responseListener, updateListener, eventType);
     }
     
     /**
-     * This method should be called by consumers when they no longer want update notifications
+     * This method should be called by consumers when they no longer want
+     * update notifications
      */
     action unregisterInterest() {
         updateListener.quit();
         responseListener.quit();
-        send RegistrationCancellationReq(eventType) to RegistrationCancellationReq.SEND_CHANNEL;
+        send RegistrationCancellationReq(eventType)
+             to RegistrationCancellationReq.SEND_CHANNEL;
     }
     
 }
@@ -138,8 +147,8 @@ monitor TokenFactory {
                 // Increment the number of consumers by 1
                 tokenCache[req.eventType].consumers := tokenCache[req.eventType].consumers + 1;
             }
-            //	Always respond with the cached value even if it is invalid.
-            //	A new TokenUpdate notification will be sent on every future refresh
+            // Always respond with the cached value even if it is invalid.
+            // A new TokenUpdate notification will be sent on every future refresh
             send TokenRegistrationResponse(req.reqId, tokenCache[req.eventType].token)
                  to TokenRegistrationResponse.SUBSCRIBE_CHANNEL;
         }
@@ -165,31 +174,36 @@ monitor TokenFactory {
      * Starts an expiration timer on a cache key.
      */
     action startExpiryTimer(string key) {
-        //	we can configure an additional wait to log a early warning,
-        //	trigger a refresh-token subroutine or notify the person responsible via SMS/EMAIL
+        // we can configure an additional wait to log an early warning, trigger
+        // a refresh-token subroutine or notify the person responsible via
+        // SMS/EMAIL
 
-        on wait(tokenCache[key].expiration - currentTime) and not StopEventListener(type=key){
+        on wait(tokenCache[key].expiration - currentTime)
+                and not StopEventListener(type=key) {
             // check if the token was refreshed during this wait
             CacheEntry cachedEntry := tokenCache[key];
             if (currentTime >= cachedEntry.expiration) {
-                log "Token with " + key + " as key has expired and no longer valid." at WARN;
+                log "Token with key=" + key + " has expired." at WARN;
                 // set token value as empty which implies invalid token
                 cachedEntry.token := "";
 
                 // Notify the consumers of this token
-                send TokenUpdate(key, cachedEntry.token) to TokenRegistrationResponse.SUBSCRIBE_CHANNEL;
+                send TokenUpdate(key, cachedEntry.token)
+                     to TokenRegistrationResponse.SUBSCRIBE_CHANNEL;
             }
         }
     }
 
     /**
-     * Updates the caches on any token refreshes received as events and notifies
-     * the consumers by sending a TokenUpdate with eventType=key
+     * Updates the caches on any token refreshes received as events and
+     * notifies the consumers by sending a TokenUpdate with eventType=key.
      */
-    action updateAndNotify(string key, string tokenValue, float expirationTime) {
+    action updateAndNotify(string key, string tokenValue, 
+                           float expirationTime) {
         CacheEntry cachedEntry := tokenCache[key];
         cachedEntry.token := tokenValue;
         cachedEntry.expiration := expirationTime;
-        send TokenUpdate(key, cachedEntry.token) to TokenUpdate.SUBSCRIBE_CHANNEL;
+        send TokenUpdate(key, cachedEntry.token)
+             to TokenUpdate.SUBSCRIBE_CHANNEL;
     }
 }
