@@ -51,11 +51,10 @@ monitor SampleConsumer {
         log "Consumer: Found a valid token: " + token at INFO;
 
         loopCounter := loopCounter + 1;
-        // Some condition after which we no longer need token and can directly
-        // unregisterInterest or call die on monitor and unregisterInterest in
-        // the ondie()
+        // Some condition after which we no longer need token and 
+        // can stop getting updates
         if (loopCounter = 20) {
-            die;
+            stopGettingUpdates();
         } else {
             log currentTime.toString() at INFO;
             // Add a small delay before the next token use
@@ -65,7 +64,7 @@ monitor SampleConsumer {
         }
     }
 
-    action ondie() {
+    action stopGettingUpdates() {
         // Avoid potential listener leaks.
         registrar.unregisterInterest();
     }
